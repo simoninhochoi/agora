@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>아고라</title>
+<meta name="description" content="수업 실시간 투표·워드클라우드 참여 화면">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="assets/app.css">
+<script type="module" src="assets/student.js"></script>
+</head>
+<body class="student">
+<header class="topbar">
+  <span class="brand">아고라</span>
+  <span class="top-right">
+    <span id="me" class="me"></span>
+    <button id="btn-nick" class="link" type="button" hidden>닉네임 바꾸기</button>
+  </span>
+</header>
+
+<main class="wrap narrow">
+  <section id="v-loading" data-view>
+    <p class="muted center">연결하는 중…</p>
+  </section>
+
+  <section id="v-code" data-view hidden>
+    <h1>참여 코드</h1>
+    <p class="muted">강의 화면에 나온 6자리 숫자를 입력하세요.</p>
+    <form id="f-code" class="stack" autocomplete="off">
+      <input id="code" class="code-input" inputmode="numeric" maxlength="7" placeholder="000 000" aria-label="참여 코드" required>
+      <button class="btn primary block">입장</button>
+      <p id="code-err" class="err" role="alert"></p>
+    </form>
+  </section>
+
+  <section id="v-nick" data-view hidden>
+    <p class="room-line" id="nick-room"></p>
+    <h1>닉네임</h1>
+    <p class="muted">응답과 함께 저장되어 강사만 봅니다. 강의 화면에는 나오지 않습니다.</p>
+    <form id="f-nick" class="stack" autocomplete="off">
+      <input id="nick" maxlength="16" placeholder="16자 이내" aria-label="닉네임" required>
+      <button class="btn primary block">참여하기</button>
+      <p id="nick-err" class="err" role="alert"></p>
+    </form>
+  </section>
+
+  <section id="v-live" data-view hidden>
+    <p class="room-line"><span id="room-title"></span> · <button id="btn-leave" class="link" type="button">다른 방</button></p>
+    <div id="q"></div>
+  </section>
+
+  <section id="v-error" data-view hidden>
+    <h1>연결하지 못했습니다</h1>
+    <p id="error-msg" class="muted"></p>
+    <button class="btn" type="button" onclick="location.reload()">다시 시도</button>
+  </section>
+</main>
+<noscript><p class="wrap narrow">자바스크립트를 켜야 참여할 수 있습니다.</p></noscript>
+</body>
+</html>

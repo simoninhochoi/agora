@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>아고라 강사</title>
+<meta name="description" content="수업 실시간 투표·워드클라우드 강사 화면">
+<meta name="robots" content="noindex">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="assets/app.css">
+<script src="assets/qrcode.js"></script>
+<script type="module" src="assets/host.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <span class="brand">아고라<small>강사</small></span>
+  <span class="top-right">
+    <span id="who"></span>
+    <button id="btn-signout" class="link" type="button" hidden>로그아웃</button>
+  </span>
+</header>
+
+<main class="wrap">
+  <section id="v-loading" data-view><p class="muted center">불러오는 중…</p></section>
+
+  <section id="v-login" data-view hidden>
+    <div class="card" style="max-width:460px;margin:40px auto">
+      <h1>강사 로그인</h1>
+      <p class="muted">방과 질문은 강사 계정으로만 만들 수 있습니다.</p>
+      <button id="btn-login" class="btn primary block" type="button">Google 계정으로 로그인</button>
+      <p id="login-err" class="err"></p>
+    </div>
+  </section>
+
+  <section id="v-claim" data-view hidden>
+    <div class="card" style="max-width:520px;margin:40px auto">
+      <h1>강사 계정 등록</h1>
+      <p>아직 강사 계정이 없습니다. <b id="claim-email"></b> 계정을 아고라의 강사 계정으로 등록합니다.</p>
+      <p class="muted">한 번 등록하면 다른 계정은 방을 만들 수 없습니다. 바꾸려면 Firebase 콘솔에서 <code>meta/owner</code> 문서를 지워야 합니다.</p>
+      <button id="btn-claim" class="btn primary block" type="button">이 계정으로 등록</button>
+      <p id="claim-err" class="err"></p>
+    </div>
+  </section>
+
+  <section id="v-denied" data-view hidden>
+    <div class="card" style="max-width:460px;margin:40px auto">
+      <h1>강사 계정이 아닙니다</h1>
+      <p class="muted">이 Google 계정으로는 방을 관리할 수 없습니다. 다른 계정으로 로그인해 주세요.</p>
+    </div>
+  </section>
+
+  <section id="v-dash" data-view hidden>
+    <div class="dash">
+      <aside class="rooms">
+        <h2>방</h2>
+        <ul id="room-list"></ul>
+        <form id="f-room" class="stack">
+          <input id="room-title-in" maxlength="40" placeholder="새 방 이름 (예: 국제관계론)" aria-label="새 방 이름" required>
+          <button class="btn">새 방 만들기</button>
+        </form>
+      </aside>
+
+      <div>
+        <div id="room-none" class="empty-note">왼쪽에서 방을 고르거나 새로 만드세요.</div>
+        <div id="room-body" hidden>
+          <div class="room-head">
+            <div>
+              <h1 id="rp-title"></h1>
+              <div class="muted">참여 코드 <span id="rp-code" class="codebig"></span></div>
+              <div class="muted"><a id="rp-link" target="_blank" rel="noopener"></a></div>
+              <div class="row actions">
+                <button id="btn-present" class="btn primary" type="button">발표 화면 열기</button>
+                <button id="btn-csv" class="btn" type="button">응답 CSV</button>
+                <button id="btn-rename" class="btn ghost" type="button">이름 바꾸기</button>
+                <button id="btn-del-room" class="btn ghost danger" type="button">방 삭제</button>
+              </div>
+            </div>
+            <div id="rp-qr" class="qr-sm" aria-hidden="true"></div>
+          </div>
+
+          <h2>질문</h2>
+          <ol id="q-list" class="q-list"></ol>
+
+          <form id="f-q" class="card" autocomplete="off">
+            <h3 id="fq-head">질문 추가</h3>
+            <div class="seg" role="radiogroup" aria-label="질문 유형">
+              <label><input type="radio" name="qtype" value="choice" checked><span>객관식 투표</span></label>
+              <label><input type="radio" name="qtype" value="text"><span>단답 → 워드클라우드</span></label>
+            </div>
+            <label>질문
+              <textarea id="fq-prompt" rows="2" maxlength="200" required></textarea>
+            </label>
+            <label id="fq-opts-wrap">보기 <span class="hint">한 줄에 하나씩, 2~8개</span>
+              <textarea id="fq-options" rows="4" placeholder="찬성&#10;반대&#10;잘 모르겠다"></textarea>
+            </label>
+            <label id="fq-max-wrap" hidden>학생 1명당 응답 칸
+              <select id="fq-max">
+                <option value="1">1개</option>
+                <option value="2">2개</option>
+                <option value="3">3개</option>
+              </select>
+            </label>
+            <p id="fq-warn" class="hint" hidden>응답이 있는 질문의 보기 순서를 바꾸면 이미 받은 표가 다른 보기로 집계됩니다.</p>
+            <p id="fq-err" class="err"></p>
+            <div class="row end">
+              <button id="fq-cancel" class="btn ghost" type="button" hidden>취소</button>
+              <button id="fq-submit" class="btn primary">추가</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<section id="present" class="present" hidden aria-label="발표 화면">
+  <header class="p-top">
+    <div class="p-join">휴대폰으로 <b class="p-url"></b> 접속 · 코드 <b class="p-code"></b></div>
+    <div class="p-qr-sm"></div>
+  </header>
+  <div class="p-main">
+    <div id="p-joinscreen" class="p-joinscreen">
+      <div class="pj-qr"></div>
+      <div class="pj-text">
+        <div class="pj-title"></div>
+        <div class="pj-step">휴대폰 카메라로 QR을 찍거나<br><span class="pj-url p-url"></span> 에 들어가 코드를 입력하세요</div>
+        <div class="pj-code p-code"></div>
+      </div>
+    </div>
+    <div id="p-question" hidden>
+      <div class="p-meta"><span id="p-num"></span><span id="p-status" class="p-status"></span></div>
+      <h1 id="p-prompt" class="p-prompt"></h1>
+      <div class="p-result">
+        <div id="p-bars" class="bars"></div>
+        <div id="p-cloud" class="cloud" hidden></div>
+        <div id="p-hidden" class="p-hidden" hidden>결과는 응답을 마감한 뒤 공개합니다</div>
+      </div>
+    </div>
+  </div>
+  <footer class="p-foot">
+    <div class="p-stats"><span id="p-count"></span><span id="p-sep"> · </span><span id="p-joined"></span></div>
+    <div class="p-ctrl">
+      <button class="btn" data-p="prev" type="button">← 이전</button>
+      <button class="btn" data-p="toggle" type="button">응답 마감</button>
+      <button class="btn" data-p="hide" type="button">결과 가리기</button>
+      <button class="btn" data-p="qr" type="button">QR 크게</button>
+      <button class="btn primary" data-p="next" type="button">다음 →</button>
+      <button class="btn ghost" data-p="full" type="button">전체 화면</button>
+      <button class="btn ghost" data-p="exit" type="button">닫기</button>
+    </div>
+    <div class="p-keys">키보드: ←/→ 이전·다음(리모컨 PageUp/PageDown) · C 마감/열기 · H 결과 가리기 · Q QR · F 전체 화면 · Esc 닫기</div>
+  </footer>
+</section>
+</body>
+</html>

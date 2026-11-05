@@ -1,0 +1,99 @@
+rules_version = '2';
+
+// 아고라 — 수업용 실시간 투표·워드클라우드
+// 학생: 익명 로그인. 방 코드로 방·현재 질문을 읽고, 자기 응답만 쓴다.
+// 강사: Google 로그인. meta/owner에 처음 등록한 계정 하나만 방·질문을 만들고 응답을 읽는다.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+    function isGoogle() {
+      return signedIn() && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+    function isTeacher() {
+      return isGoogle()
+        && exists(/databases/$(database)/documents/meta/owner)
+        && get(/databases/$(database)/documents/meta/owner).data.uid == request.auth.uid;
+    }
+    function validNickname(n) {
+      return n is string && n.size() >= 1 && n.size() <= 16;
+    }
+    function wordOk(w) {
+      return w is string && w.size() >= 1 && w.size() <= 20;
+    }
+
+    // 강사 계정 등록: 처음 한 번만, Google 계정으로, 자기 uid로만.
+    match /meta/owner {
+      allow get: if signedIn();
+      allow create: if isGoogle()
+        && request.resource.data.keys().hasOnly(['uid', 'claimedAt'])
+        && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /rooms/{code} {
+      allow get: if signedIn();
+      allow list: if isTeacher();
+      allow create, update, delete: if isTeacher();
+
+      function room() {
+        return get(/databases/$(database)/documents/rooms/$(code)).data;
+      }
+
+      match /participants/{uid} {
+        allow get: if isSelf(uid) || isTeacher();
+        allow list, delete: if isTeacher();
+        allow create, update: if isSelf(uid)
+          && exists(/databases/$(database)/documents/rooms/$(code))
+          && request.resource.data.keys().hasOnly(['nickname', 'lastSeen'])
+          && request.resource.data.keys().hasAll(['nickname', 'lastSeen'])
+          && validNickname(request.resource.data.nickname)
+          && request.resource.data.lastSeen == request.time;
+      }
+
+      match /questions/{qid} {
+        allow get: if signedIn();
+        allow list: if isTeacher();
+        allow create, update, delete: if isTeacher();
+
+        function question() {
+          return get(/databases/$(database)/documents/rooms/$(code)/questions/$(qid)).data;
+        }
+        function validChoice(q) {
+          let d = request.resource.data;
+          return d.keys().hasOnly(['nickname', 'choice', 'updatedAt'])
+            && d.keys().hasAll(['nickname', 'choice', 'updatedAt'])
+            && d.choice is int && d.choice >= 0 && d.choice < q.options.size();
+        }
+        function validWords(q) {
+          let d = request.resource.data;
+          return d.keys().hasOnly(['nickname', 'words', 'updatedAt'])
+            && d.keys().hasAll(['nickname', 'words', 'updatedAt'])
+            && d.words is list
+            && d.words.size() >= 1 && d.words.size() <= 3 && d.words.size() <= q.maxWords
+            && wordOk(d.words[0])
+            && (d.words.size() < 2 || wordOk(d.words[1]))
+            && (d.words.size() < 3 || wordOk(d.words[2]));
+        }
+
+        match /responses/{uid} {
+          allow get: if isSelf(uid) || isTeacher();
+          allow list, delete: if isTeacher();
+          // 지금 화면에 뜬 질문이고, 응답을 받는 중일 때만 쓸 수 있다.
+          allow create, update: if isSelf(uid)
+            && room().activeQuestionId == qid
+            && question().open == true
+            && validNickname(request.resource.data.nickname)
+            && request.resource.data.updatedAt == request.time
+            && ((question().type == 'choice' && validChoice(question()))
+                || (question().type == 'text' && validWords(question())));
+        }
+      }
+    }
+  }
+}
