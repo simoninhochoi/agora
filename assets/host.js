@@ -376,7 +376,8 @@ async function exportCsv() {
   const csv = `﻿${rows.map((r) => r.map(csvCell).join(",")).join("\r\n")}`;
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
-  const day = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const now = new Date();
+  const day = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
   a.href = URL.createObjectURL(blob);
   a.download = `아고라_${title.replace(/[\\/:*?"<>|]/g, "_")}_${day}.csv`;
   document.body.appendChild(a);
