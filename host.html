@@ -87,6 +87,7 @@
             <div class="seg" role="radiogroup" aria-label="질문 유형">
               <label><input type="radio" name="qtype" value="choice" checked><span>객관식 투표</span></label>
               <label><input type="radio" name="qtype" value="text"><span>단답 → 워드클라우드</span></label>
+              <label><input type="radio" name="qtype" value="textlist"><span>단답 → 목록(닉네임과 답)</span></label>
             </div>
             <label>질문
               <textarea id="fq-prompt" rows="2" maxlength="200" required></textarea>
@@ -134,6 +135,7 @@
       <div class="p-result">
         <div id="p-bars" class="bars"></div>
         <div id="p-cloud" class="cloud" hidden></div>
+        <ol id="p-list" class="alist" hidden></ol>
         <div id="p-hidden" class="p-hidden" hidden>결과는 응답을 마감한 뒤 공개합니다</div>
       </div>
     </div>
@@ -144,12 +146,13 @@
       <button class="btn" data-p="prev" type="button">← 이전</button>
       <button class="btn" data-p="toggle" type="button">응답 마감</button>
       <button class="btn" data-p="hide" type="button">결과 가리기</button>
+      <button class="btn" data-p="view" type="button">목록 보기</button>
       <button class="btn" data-p="qr" type="button">QR 크게</button>
       <button class="btn primary" data-p="next" type="button">다음 →</button>
       <button class="btn ghost" data-p="full" type="button">전체 화면</button>
       <button class="btn ghost" data-p="exit" type="button">닫기</button>
     </div>
-    <div class="p-keys">키보드: ←/→ 이전·다음(리모컨 PageUp/PageDown) · C 마감/열기 · H 결과 가리기 · Q QR · F 전체 화면 · Esc 닫기</div>
+    <div class="p-keys">키보드: ←/→ 이전·다음(리모컨 PageUp/PageDown) · C 마감/열기 · H 결과 가리기 · L 목록/워드클라우드 · ↓/↑ 목록 스크롤 · Q QR · F 전체 화면 · Esc 닫기</div>
   </footer>
 </section>
 </body>

@@ -216,6 +216,7 @@ function render() {
     ready = true;
     body = `
       <p class="muted" style="margin:0">${max > 1 ? `낱말이나 짧은 구절로 ${max}개까지` : "낱말이나 짧은 구절 하나로"} 답해 주세요. (칸마다 20자)</p>
+      ${q.view === "list" ? `<p class="note warn" style="margin:0">이 질문의 답은 <b>닉네임과 함께</b> 강의 화면에 나옵니다.</p>` : ""}
       <div class="words">
         ${Array.from({ length: max }, (_, i) => `
           <input class="word" maxlength="20" data-i="${i}" value="${esc(vals[i] || "")}"

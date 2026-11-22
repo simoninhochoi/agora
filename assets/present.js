@@ -1,6 +1,6 @@
 // 발표 화면(프로젝터용). 데이터는 호출하는 쪽(host.js·demo.js)이 state로 넘긴다.
 import {
-  $, qrSvg, joinUrl, shortJoinUrl, prettyCode,
+  $, esc, qrSvg, joinUrl, shortJoinUrl, prettyCode,
   renderBars, renderCloud, tallyWords, tallyChoices,
 } from "./common.js";
 
@@ -23,6 +23,12 @@ export function initPresent(handlers) {
     else if (["ArrowLeft", "PageUp", "p", "P"].includes(k)) { e.preventDefault(); H.prev?.(); }
     else if (k === "c" || k === "C") H.toggle?.();
     else if (k === "h" || k === "H") H.hide?.();
+    else if (k === "l" || k === "L") H.view?.();
+    else if ((k === "ArrowDown" || k === "ArrowUp") && !$("#p-list").hidden) {
+      e.preventDefault();
+      const el = $("#p-list");
+      el.scrollBy({ top: (k === "ArrowDown" ? 1 : -1) * el.clientHeight * 0.7, behavior: "auto" });
+    }
     else if (k === "q" || k === "Q") H.qr?.();
     else if (k === "f" || k === "F") toggleFullscreen();
     else if (k === "Escape" && !document.fullscreenElement) H.exit?.();
@@ -47,7 +53,7 @@ export function toggleFullscreen() {
   else root().requestFullscreen?.().catch(() => {});
 }
 
-// s = { code, room, question, responses, joined, idx, total, hide, showJoin }
+// s = { code, room, question, responses, joined, idx, total, hide, showJoin, view("cloud" | "list" | null) }
 export function renderPresent(s) {
   S = s;
   const r = root();
@@ -79,6 +85,9 @@ export function renderPresent(s) {
   btn("hide").textContent = s.hide ? "결과 보이기" : "결과 가리기";
   btn("qr").textContent = s.showJoin ? "QR 닫기" : "QR 크게";
   btn("qr").disabled = !q;
+  const asList = !!q && q.type === "text" && s.view === "list";
+  btn("view").disabled = !q || q.type !== "text";
+  btn("view").textContent = asList ? "워드클라우드 보기" : "목록 보기";
 
   if (!q) return;
   $("#p-num").textContent = `${s.idx + 1} / ${s.total}`;
@@ -91,20 +100,60 @@ export function renderPresent(s) {
 
   const bars = $("#p-bars");
   const cloud = $("#p-cloud");
+  const list = $("#p-list");
   $("#p-hidden").hidden = !s.hide;
   bars.hidden = s.hide || q.type !== "choice";
-  cloud.hidden = s.hide || q.type !== "text";
+  cloud.hidden = s.hide || q.type !== "text" || asList;
+  list.hidden = s.hide || !asList;
   if (s.hide) return;
   if (q.type === "choice") {
     const opts = q.options || [];
     renderBars(bars, opts, tallyChoices(s.responses, opts.length), { highlight: !q.open });
+  } else if (asList) {
+    // 닉네임은 「목록」으로 만든 질문에서만 — 학생 화면이 그 질문에서만 「닉네임과 함께 나온다」고 알린다.
+    renderList(list, s.responses, q.id, q.view === "list");
   } else {
     scheduleCloud();
   }
 }
 
+// 단답을 「닉네임 + 답」 카드로 두 열에 늘어놓는다. 낸 순서대로, 스크롤해 가며 본다.
+// 맨 아래를 보고 있으면 새 답이 들어올 때 따라 내려가고, 위로 올려 읽는 중이면 자리를 지킨다.
+const stamp = (d) => {
+  const t = d.updatedAt;
+  if (typeof t === "number") return t;
+  return t?.toMillis?.() ?? Number.MAX_SAFE_INTEGER; // 막 보낸 응답은 서버 시각이 아직 없을 수 있다
+};
+function renderList(el, responses, qid, showNick) {
+  const rows = responses
+    .map((d) => ({ nick: d.nickname || "익명", words: (Array.isArray(d.words) ? d.words : []).filter(Boolean), t: stamp(d) }))
+    .filter((r) => r.words.length)
+    .sort((a, b) => a.t - b.t);
+  const sig = qid + (showNick ? "N" : "A") + "\u0001" + rows.map((r) => r.nick + "\u0002" + r.words.join("\u0003")).join("\u0001");
+  if (!el._bound) {
+    // 사용자가 스크롤한 자리를 기억한다 — 맨 아래 근처면 새 답을 따라가고, 위로 올렸으면 그 자리를 지킨다.
+    el.addEventListener("scroll", () => { el._stick = el.scrollHeight - el.scrollTop - el.clientHeight < 40; });
+    el._bound = true;
+  }
+  if (el.dataset.sig === sig) return;
+  const sameQ = el.dataset.qid === qid;
+  const atBottom = !sameQ || el._stick !== false;
+  const keep = el.scrollTop;
+  el.innerHTML = rows.length
+    ? rows.map((r) => `
+        <li class="al-item">
+          ${showNick ? `<span class="al-nick">${esc(r.nick)}</span>` : ""}
+          <span class="al-ans">${r.words.map(esc).join(" · ")}</span>
+        </li>`).join("")
+    : `<li class="al-empty">아직 응답이 없습니다</li>`;
+  el.dataset.sig = sig;
+  el.dataset.qid = qid;
+  if (!sameQ) { el._stick = true; el.scrollTop = el.scrollHeight; }
+  else el.scrollTop = atBottom ? el.scrollHeight : keep;
+}
+
 function scheduleCloud(fast) {
-  if (!S?.question || S.question.type !== "text" || S.hide) return;
+  if (!S?.question || S.question.type !== "text" || S.hide || S.view === "list") return;
   clearTimeout(cloudTimer);
   cloudTimer = setTimeout(() => {
     const cloud = $("#p-cloud");

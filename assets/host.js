@@ -40,6 +40,9 @@ let joined = 0;
 let hide = false;
 let showJoin = false;
 let moving = false;
+// 발표 중 L 키로 바꾼 보기(질문 id → "list" | "cloud"). 질문에 저장하지 않고 이 화면에서만 쓴다.
+const viewOverride = new Map();
+const viewOf = (q) => (q?.type === "text" ? (viewOverride.get(q.id) || (q.view === "list" ? "list" : "cloud")) : null);
 
 const roomRef = (c = code) => doc(db, "rooms", c);
 const qCol = (c = code) => collection(db, "rooms", c, "questions");
@@ -74,6 +77,12 @@ function boot() {
     toggle: () => { const q = activeQ(); if (q) toggleOpen(q).catch(err); },
     hide: () => { hide = !hide; paint(); },
     qr: () => { showJoin = !showJoin; paint(); },
+    view: () => {
+      const q = activeQ();
+      if (q?.type !== "text") return;
+      viewOverride.set(q.id, viewOf(q) === "list" ? "cloud" : "list");
+      paint();
+    },
     full: toggleFullscreen,
     exit: exitPresent,
   });
@@ -261,7 +270,7 @@ function renderQs() {
   list.innerHTML = questions.map((q, i) => {
     const on = q.id === active;
     const tags = [
-      `<span class="tag">${q.type === "choice" ? "객관식" : "워드클라우드"}</span>`,
+      `<span class="tag">${q.type === "choice" ? "객관식" : (q.view === "list" ? "목록" : "워드클라우드")}</span>`,
       on ? `<span class="tag live">화면에 뜸</span>` : "",
       q.open ? `<span class="tag open">응답 받는 중</span>` : (q.closedAt ? `<span class="tag">마감</span>` : ""),
     ].join("");
@@ -323,13 +332,17 @@ const qType = () => document.querySelector('input[name="qtype"]:checked').value;
 function syncForm() {
   const t = qType();
   $("#fq-opts-wrap").hidden = t !== "choice";
-  $("#fq-max-wrap").hidden = t !== "text";
+  $("#fq-max-wrap").hidden = t === "choice";
   $("#fq-warn").hidden = !(editingId && t === "choice");
 }
 function startEdit(q) {
   editingId = q.id;
-  document.querySelector(`input[name="qtype"][value="${q.type}"]`).checked = true;
-  document.querySelectorAll('input[name="qtype"]').forEach((r) => { r.disabled = true; });
+  const kind = q.type === "choice" ? "choice" : (q.view === "list" ? "textlist" : "text");
+  document.querySelector(`input[name="qtype"][value="${kind}"]`).checked = true;
+  // 객관식 ↔ 단답은 응답 형식이 달라 막고, 단답의 워드클라우드 ↔ 목록은 보기만 바뀌므로 열어 둔다.
+  document.querySelectorAll('input[name="qtype"]').forEach((r) => {
+    r.disabled = q.type === "choice" ? true : r.value === "choice";
+  });
   $("#fq-prompt").value = q.prompt || "";
   $("#fq-options").value = (q.options || []).join("\n");
   $("#fq-max").value = String(q.maxWords || 1);
@@ -429,10 +442,13 @@ function wireDash() {
   $("#f-q").addEventListener("submit", async (e) => {
     e.preventDefault();
     $("#fq-err").textContent = "";
-    const type = qType();
+    const kind = qType();
+    // 「목록」은 단답과 같은 응답 형식(보안 규칙의 type = text)이고, 발표 화면의 모양만 view로 정한다.
+    const type = kind === "choice" ? "choice" : "text";
     const prompt = $("#fq-prompt").value.trim();
     if (!prompt) { $("#fq-err").textContent = "질문을 입력하세요."; return; }
     const data = { type, prompt };
+    if (type === "text") data.view = kind === "textlist" ? "list" : "cloud";
     if (type === "choice") {
       const options = $("#fq-options").value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
       if (options.length < 2 || options.length > 8) { $("#fq-err").textContent = "보기는 2~8개가 필요합니다."; return; }
@@ -535,6 +551,7 @@ function paint() {
     total: questions.length,
     hide,
     showJoin: q ? showJoin : false,
+    view: viewOf(q),
   });
 }
 async function next() {
