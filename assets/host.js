@@ -6,6 +6,7 @@ import {
   onSnapshot, serverTimestamp, Timestamp,
 } from "./sdk.js";
 import { firebaseConfig } from "./firebase-config.js";
+import { SETS } from "./sets.js";
 import { $, esc, show, qrSvg, joinUrl, prettyCode, startOfToday, confirmBox, toast } from "./common.js";
 import {
   initPresent, openPresent, closePresent, isPresenting, renderPresent, toggleFullscreen,
@@ -175,6 +176,7 @@ function selectRoom(c) {
   $("#rp-link").textContent = url;
   $("#rp-qr").innerHTML = qrSvg(url);
   $("#q-list").innerHTML = "";
+  renderSets();
 
   unsubRoom = onSnapshot(roomRef(c), (s) => {
     if (code !== c) return;
@@ -191,6 +193,7 @@ function selectRoom(c) {
     if (code !== c) return;
     questions = s.docs.map((d) => ({ id: d.id, ...d.data() }));
     renderQs();
+    renderSets();
     paint();
   }, err);
 }
@@ -365,6 +368,53 @@ function cancelEdit() {
   syncForm();
 }
 
+// ── 준비된 질문 묶음(assets/sets.js) ─────────────
+// 이 방의 코드에 딸린 묶음만 보인다. 같은 문구의 질문이 이미 있으면 건너뛰므로 두 번 눌러도 겹치지 않는다.
+const norm = (s) => String(s || "").replace(/\s+/g, " ").trim();
+function missingOf(set) {
+  const have = new Set(questions.map((q) => norm(q.prompt)));
+  return set.questions.filter((q) => !have.has(norm(q.prompt)));
+}
+function renderSets() {
+  const box = $("#sets");
+  const mine = code ? SETS.filter((s) => s.room === code) : [];
+  box.hidden = !mine.length;
+  if (!mine.length) { box.innerHTML = ""; return; }
+  box.innerHTML = `<h3>준비된 질문</h3>${mine.map((s) => {
+    const miss = missingOf(s);
+    const all = s.questions.length;
+    const label = !miss.length ? "모두 들어 있음"
+      : miss.length === all ? `${all}개 넣기` : `빠진 ${miss.length}개 넣기`;
+    const items = s.questions.map((q) => {
+      const kind = q.type === "choice" ? "객관식" : (q.view === "list" ? "목록" : "워드클라우드");
+      const done = !miss.includes(q);
+      return `<li class="${done ? "done" : ""}"><span class="tag">${kind}</span> ${esc(q.prompt)}${done ? ` <span class="muted">· 있음</span>` : ""}</li>`;
+    }).join("");
+    return `
+      <div class="set" data-set="${esc(s.id)}">
+        <div class="row set-head">
+          <b>${esc(s.title)}</b>
+          <button type="button" class="btn small ${miss.length ? "primary" : ""}" data-act="add-set" ${miss.length ? "" : "disabled"}>${label}</button>
+        </div>
+        <ol class="set-qs">${items}</ol>
+      </div>`;
+  }).join("")}`;
+}
+async function addSet(set) {
+  const miss = missingOf(set);
+  if (!miss.length) return 0;
+  const b = writeBatch(db);
+  const base = Math.max(Date.now(), ...questions.map((q) => (typeof q.order === "number" ? q.order + 1 : 0)));
+  miss.forEach((q, i) => {
+    const data = q.type === "choice"
+      ? { type: "choice", prompt: q.prompt, options: q.options, maxWords: 1 }
+      : { type: "text", view: q.view === "list" ? "list" : "cloud", prompt: q.prompt, options: [], maxWords: q.maxWords || 1 };
+    b.set(doc(qCol()), { ...data, open: false, order: base + i, createdAt: serverTimestamp() });
+  });
+  await b.commit();
+  return miss.length;
+}
+
 // ── CSV ───────────────────────────────────
 function csvCell(v) {
   let s = String(v ?? "");
@@ -469,6 +519,17 @@ function wireDash() {
       }
       cancelEdit();
     } catch (er) { err(er); } finally { $("#fq-submit").disabled = false; }
+  });
+
+  $("#sets").addEventListener("click", async (e) => {
+    const b = e.target.closest('[data-act="add-set"]');
+    const set = SETS.find((s) => s.id === b?.closest("[data-set]")?.dataset.set);
+    if (!set) return;
+    b.disabled = true;
+    try {
+      const n = await addSet(set);
+      toast(n ? `질문 ${n}개를 넣었습니다.` : "이미 모두 들어 있습니다.");
+    } catch (er) { err(er); b.disabled = false; }
   });
 
   $("#q-list").addEventListener("click", async (e) => {

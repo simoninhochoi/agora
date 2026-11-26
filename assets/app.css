@@ -328,3 +328,10 @@ body.presenting { overflow: hidden; }
   .bar-fill, .cw { transition: none; }
   .p-status::before, .waiting .dot { animation: none; }
 }
+
+/* ── 준비된 질문 묶음 ───────────────────────── */
+.sets { margin-bottom: 18px; }
+.set + .set { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.set-head { justify-content: space-between; }
+.set-qs { margin: 8px 0 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 4px; font-size: .92rem; }
+.set-qs li.done { color: var(--muted); }
